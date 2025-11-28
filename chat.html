@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WhatsApp Clone - Chat</title>
+    <style>
+        body { margin: 0; background: #e5ddd5; color: #fff; font-family: Arial; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .top { background: #075e54; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; position: relative; }
+        .title { font-weight: 700; }
+        #onlineList { font-size: 13px; color: #86efac; }
+        .hamburger { display: none; font-size: 24px; cursor: pointer; color: white; }
+        #main { display: flex; flex: 1; overflow: hidden; }
+        #left { width: 260px; background: #071622; padding: 12px; border-right: 1px solid rgba(255,255,255,.03); overflow: auto; transition: left 0.3s; }
+        #chatArea { flex: 1; display: flex; flex-direction: column; }
+        #messages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; }
+        .msg { display: flex; align-items: flex-start; padding: 10px 12px; margin: 6px 0; border-radius: 10px; background: #0f1724; max-width: 70%; word-wrap: break-word; align-self: flex-start; position: relative; }
+        .me { background: #dcf8c6; color: #000; align-self: flex-end; margin-left: auto; flex-direction: row-reverse; }
+        .avatar { width: 30px; height: 30px; border-radius: 50%; background: #06b6d4; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; margin-right: 8px; flex-shrink: 0; }
+        .me .avatar { margin-right: 0; margin-left: 8px; }
+        .msg-content { flex: 1; }
+        .meta { font-size: 12px; color: #94a3b8; margin-top: 6px; }
+        .delete-btn { display: none; position: absolute; top: 5px; right: 5px; background: red; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 12px; min-width: 20px; min-height: 20px; }
+        .me:hover .delete-btn { display: block; } /* Show on hover for PC */
+        #inputBar { padding: 12px; display: flex; gap: 10px; background: #f0f0f0; }
+        input#msg { flex: 1; padding: 12px; border-radius: 8px; border: 0; font-size: 14px; }
+        button { padding: 10px 14px; border-radius: 8px; border: 0; background: #25d366; color: #000; font-weight: 700; cursor: pointer; min-height: 44px; } /* Touch-friendly */
+        button:hover { background: #128c7e; }
+        #logoutBtn { background: #ef4444; color: #fff; }
+        .small { font-size: 13px; color: #cbd5e1; }
+        #users li { display: flex; align-items: center; margin: 8px 0; }
+        #users .avatar { width: 25px; height: 25px; font-size: 12px; margin-right: 8px; }
+        @media (max-width: 600px) {
+            .hamburger { display: block; }
+            #left { position: absolute; left: -100%; width: 100%; z-index: 10; } /* Hidden by default, slides in */
+            #left.open { left: 0; } /* Show when toggled */
+            .me .delete-btn { display: block; } /* Always show delete on mobile */
+            .msg { max-width: 85%; }
+            .avatar { width: 25px; height: 25px; font-size: 12px; }
+            .me .avatar { margin-left: 6px; }
+            input#msg { font-size: 16px; } /* Prevents zoom on iOS */
+            button { min-height: 48px; font-size: 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="top">
+        <div class="hamburger" id="hamburger">☰</div>
+        <div class="title">Chat Room</div>
+        <div id="onlineList">Checking...</div>
+    </div>
+    <div id="main">
+        <div id="left">
+            <div class="small">Users (online)</div>
+            <ul id="users" style="list-style: none; padding: 8px 0; margin: 0"></ul>
+        </div>
+        <div id="chatArea">
+            <div id="messages"></div>
+            <div id="inputBar">
+                <input id="msg" placeholder="Type a message...">
+                <button id="sendBtn">Send</button>
+                <button id="logoutBtn">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase v8 CDN -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script>
+        // Your Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyCe6NM-f6zIcKj44atM1_x3Blo2mWXe9R8",
+            authDomain: "chatapp-e9edd.firebaseapp.com",
+            projectId: "chatapp-e9edd",
+            storageBucket: "chatapp-e9edd.firebasestorage.app",
+            messagingSenderId: "1097898037970",
+            appId: "1:1097898037970:web:d17214a12f7294fd97d30b",
+            databaseURL: "https://chatapp-e9edd-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const firestore = firebase.firestore();
+        const rtdb = firebase.database();
+
+        // Current user
+        const username = localStorage.getItem('chat_username');
+        if (!username) { location = 'index.html'; throw 'No user'; }
+
+        // Presence
+        const statusRef = rtdb.ref('status/' + username);
+        statusRef.set({ online: true, lastSeen: Date.now() });
+        statusRef.onDisconnect().set({ online: false, lastSeen: Date.now() });
+
+        // Hamburger menu toggle for mobile
+        const hamburger = document.getElementById('hamburger');
+        const leftSidebar = document.getElementById('left');
+        hamburger.addEventListener('click', () => {
+            leftSidebar.classList.toggle('open');
+        });
+
+        // Update online list with avatars
+        const usersList = document.getElementById('users');
+        const onlineListLabel = document.getElementById('onlineList');
+        rtdb.ref('status').on('value', snap => {
+            usersList.innerHTML = '';
+            let onlineCount = 0;
+            snap.forEach(child => {
+                const key = child.key;
+                const val = child.val();
+                if (val && val.online) {
+                    onlineCount++;
+                    const li = document.createElement('li');
+                    const avatar = document.createElement('div');
+                    avatar.className = 'avatar';
+                    avatar.textContent = key.charAt(0).toUpperCase();
+                    avatar.style.background = getRandomColor();
+                    li.appendChild(avatar);
+                    li.appendChild(document.createTextNode(key + ' (online)'));
+                    usersList.appendChild(li);
+                }
+            });
+            onlineListLabel.textContent = onlineCount + ' online';
+        });
+
+        // Load and listen messages with avatars
+        const messagesDiv = document.getElementById('messages');
+        firestore.collection('messages').orderBy('time').limit(1000)
+            .onSnapshot(snapshot => {
+                messagesDiv.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const m = doc.data();
+                    const d = document.createElement('div');
+                    d.className = 'msg' + (m.user === username ? ' me' : '');
+                    
+                    // Avatar
+                    const avatar = document.createElement('div');
+                    avatar.className = 'avatar';
+                    avatar.textContent = (m.user || 'U').charAt(0).toUpperCase();
+                    avatar.style.background = getRandomColor();
+                    d.appendChild(avatar);
+                    
+                    // Message content
+                    const content = document.createElement('div');
+                    content.className = 'msg-content';
+                    content.innerHTML = '<strong>' + (m.user || 'Unknown') + '</strong><br>' + escapeHtml(m.text) +
+                                        '<div class="meta">' + new Date(m.time).toLocaleString() + '</div>';
+                    d.appendChild(content);
+                    
+                    // Delete button for sent messages
+                    if (m.user === username) {
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'delete-btn';
+                        deleteBtn.textContent = 'X';
+                        deleteBtn.onclick = () => {
+                            if (confirm('Delete this message?')) {
+                                firestore.collection('messages').doc(doc.id).delete();
+                            }
+                        };
+                        d.appendChild(deleteBtn);
+                    }
+                    
+                    messagesDiv.appendChild(d);
+                });
+                messagesDiv.scrollTop = messagesDiv.scrollHeight; // Downward scroll
+            });
+
+        // Send message
+        document.getElementById('sendBtn').onclick = sendMsg;
+        document.getElementById('msg').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMsg(); });
+        function sendMsg() {
+            const text = document.getElementById('msg').value.trim();
+            if (!text) return;
+            firestore.collection('messages').add({
+                user: username,
+                text: text,
+                time: Date.now()
+            }).then(() => {
+                document.getElementById('msg').value = '';
+            }).catch(err => console.error(err));
+        }
+
+        // Logout
+        document.getElementById('logoutBtn').onclick = async () => {
+            try {
+                await statusRef.set({ online: false, lastSeen: Date.now() });
+                localStorage.removeItem('chat_username');
+                location = 'index.html';
+            } catch (e) { console.error(e); location = 'index.html'; }
+        };
+
+        // Mark offline on close
+        window.addEventListener('beforeunload', () => {
+            try { statusRef.set({ online: false, lastSeen: Date.now() }); } catch (e) {}
+        });
+
+        // Utility: escape HTML
+        function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+        // Utility: random color for avatars
+        function getRandomColor() {
+            const colors = ['#06b6d4', '#25d366', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WhatsApp Clone - Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #e5ddd5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; padding: 20px; }
+        .login-container { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 400px; }
+        input { padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; width: 100%; max-width: 300px; font-size: 16px; }
+        button { padding: 12px 20px; background: #25d366; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; width: 100%; max-width: 300px; }
+        button:hover { background: #128c7e; }
+        @media (max-width: 600px) { .login-container { padding: 15px; } input, button { font-size: 16px; } }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>Enter Chat</h2>
+        <input id="username" type="text" placeholder="Enter your username" required>
+        <br>
+        <button onclick="login()">Join Chat</button>
+    </div>
+
+    <script>
+        // List of allowed usernames (case-insensitive)
+        const allowedUsers = ['shivam', 'uttam', 'harsh', 'sneha'];
+
+        function login() {
+            const username = document.getElementById('username').value.trim().toLowerCase(); // Trim and lowercase for matching
+            if (!username) {
+                alert('Please enter a username.');
+                return;
+            }
+            if (!allowedUsers.includes(username)) {
+                alert('Access denied. Only authorized users can log in.');
+                document.getElementById('username').value = ''; // Clear input
+                return;
+            }
+            // If allowed, proceed
+            localStorage.setItem('chat_username', username);
+            location = 'chat.html'; // Redirect to the chat page
+        }
+
+        // Allow pressing Enter to login
+        document.getElementById('username').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') login();
+        });
+    </script>
+</body>
+</html>
